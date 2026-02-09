@@ -69,7 +69,7 @@ extensions:
 - Cargo:
     Wikidata ID: Q21676223
     branch: master
-    commit: 3dc65263537bfaf2ee24f3147926876daf25b86e # v. 3.8.5
+    commit: 7b138c91ba2a0bb710f507ac57bfc420f7b8fb21 # v. 3.8.7
     additional steps:
     - database update
 - CategoryTree:
