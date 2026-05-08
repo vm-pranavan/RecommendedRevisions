@@ -69,7 +69,7 @@ extensions:
 - Cargo:
     Wikidata ID: Q21676223
     branch: master
-    commit: 7b138c91ba2a0bb710f507ac57bfc420f7b8fb21 # v. 3.8.7
+    commit: 7d92aee4a12e4eaefeff973eec6cafc838f845f0 # v. 3.9.1
     additional steps:
     - database update
 - CategoryTree:
@@ -334,7 +334,7 @@ extensions:
 - Mermaid:
     Wikidata ID: Q47005306
     repository: https://github.com/SemanticMediaWiki/Mermaid
-    commit: fd792683fef3c84a7cdd56f8f474c4da0dd630f2 # v. 3.1.0
+    commit: b7da0413798b39872cc2b8ba3590c28ae27d3f75 # v. 6.0.2
 - MintyDocs:
     Wikidata ID: Q55501601
     branch: master
