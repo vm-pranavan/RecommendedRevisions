@@ -167,6 +167,9 @@ extensions:
 - DisplayTitle:
     Wikidata ID: Q27948979
     commit: 920768a8efb9f316aed1f134fc07aa153d612eb7
+- DynamicSidebar:
+    Wikidata ID: Q21677391
+    commit: 3b74ff48ffa57bea45c203481e307efc1bf86136
 - Echo:
     Wikidata ID: Q21676230
     bundled: true
