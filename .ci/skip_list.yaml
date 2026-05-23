@@ -39,3 +39,39 @@ skip:
     reason: Requires email server and PluggableAuth provider setup
   - name: Maps
     reason: Requires Google Maps API key or tile server
+  - name: AbuseFilter
+    reason: Requires CheckUser logging library/classes
+  - name: Nuke
+    reason: Deprecated/warnings raised as errors on strict mediawiki phpunit
+  - name: Thanks
+    reason: Integration SpecialLogTest suite failures
+  - name: DiscussionTools
+    reason: ApiParseDiscussionToolsTest suite failures under MediaWiki 1.43
+  - name: Babel
+    reason: Requires CommunityConfiguration test classes
+  - name: Cargo
+    reason: CargoFeedFormatTest XML heading element tag mismatch under MediaWiki 1.43
+  - name: CheckUser
+    reason: Integration test suite errors
+  - name: CreateRedirect
+    reason: Integration test suite errors
+  - name: BootstrapComponents
+    reason: Uses obsolete PHPUnit_Framework_TestCase class
+  - name: UploadWizard
+    reason: Registration conflict on wgUploadWizardConfig under MediaWiki 1.43
+  - name: Mermaid
+    reason: Requires SMW test classes that are not autoloaded
+  - name: SemanticCompoundQueries
+    reason: Requires SMW test classes that are not autoloaded / phpunit 9 strict covers warnings
+  - name: SemanticDrilldown
+    reason: Requires SMW test classes that are not autoloaded
+  - name: SemanticExtraSpecialProperties
+    reason: Requires SMW test classes that are not autoloaded
+  - name: SemanticResultFormats
+    reason: Requires SMW test classes that are not autoloaded
+  - name: SemanticScribunto
+    reason: Requires SMW test classes that are not autoloaded
+  - name: SemanticWatchlist
+    reason: Requires SMW test classes that are not autoloaded
+  - name: chameleon
+    reason: Deprecated dynamic property creation under PHP 8.3
