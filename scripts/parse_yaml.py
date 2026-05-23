@@ -64,13 +64,13 @@ def extract_mw_version(yaml_path: str) -> str:
     return match.group(1)
 
 
-def default_branch_for(entry: dict, mw_version: str) -> str:
+def default_branch_for(entry: dict, mw_version: str) -> str | None:
     """Return the default branch for an extension/skin entry."""
     if "branch" in entry:
         return entry["branch"]
     if "repository" in entry:
-        # External (GitHub) repos default to master.
-        return "master"
+        # External (GitHub) repos: clone the default branch dynamically.
+        return None
     # Wikimedia Gerrit repos default to REL1_XX.
     major, minor = mw_version.split(".")
     return f"REL{major}_{minor}"

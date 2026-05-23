@@ -98,10 +98,11 @@ for entry in entries:
                        capture_output=True)
     else:
         print(f"  CLONE {kind:8s}  {name}  <- {repo} (branch: {branch})")
-        result = subprocess.run(
-            ["git", "clone", "--branch", branch, "--single-branch", "--depth", "50", repo, target_dir],
-            capture_output=True, text=True,
-        )
+        cmd = ["git", "clone"]
+        if branch:
+            cmd.extend(["--branch", branch, "--single-branch"])
+        cmd.extend([repo, target_dir])
+        result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode != 0:
             print(f"  ERROR cloning {name}: {result.stderr.strip()}")
             skipped_entries.append(name)
@@ -114,17 +115,9 @@ for entry in entries:
             cwd=target_dir, capture_output=True, text=True,
         )
         if result.returncode != 0:
-            # The commit might not be in the shallow clone — deepen and retry.
-            subprocess.run(["git", "fetch", "--unshallow"], cwd=target_dir,
-                           capture_output=True, check=False)
-            result = subprocess.run(
-                ["git", "checkout", commit],
-                cwd=target_dir, capture_output=True, text=True,
-            )
-            if result.returncode != 0:
-                print(f"  ERROR checking out {commit} for {name}: {result.stderr.strip()}")
-                skipped_entries.append(name)
-                continue
+            print(f"  ERROR checking out {commit} for {name}: {result.stderr.strip()}")
+            skipped_entries.append(name)
+            continue
 
     installed.append(name)
 
@@ -184,8 +177,20 @@ for entry in entries:
     if not os.path.isdir(target_dir):
         continue
 
-    fn = "wfLoadExtension" if kind == "extension" else "wfLoadSkin"
-    load_lines.append(f'{fn}( \'{name}\' );')
+    if kind == "extension":
+        if os.path.isfile(os.path.join(target_dir, "extension.json")):
+            load_lines.append(f"wfLoadExtension( '{name}' );")
+        elif os.path.isfile(os.path.join(target_dir, f"{name}.php")):
+            load_lines.append(f"require_once \"$IP/extensions/{name}/{name}.php\";")
+        else:
+            print(f"  WARN: Could not find entry point for extension {name}")
+    else:  # skin
+        if os.path.isfile(os.path.join(target_dir, "skin.json")):
+            load_lines.append(f"wfLoadSkin( '{name}' );")
+        elif os.path.isfile(os.path.join(target_dir, f"{name}.php")):
+            load_lines.append(f"require_once \"$IP/skins/{name}/{name}.php\";")
+        else:
+            print(f"  WARN: Could not find entry point for skin {name}")
 
 with open(ls_path, "a") as f:
     f.write("\n".join(load_lines) + "\n")
