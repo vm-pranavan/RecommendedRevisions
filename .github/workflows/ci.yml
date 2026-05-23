@@ -323,6 +323,8 @@ jobs:
           php maintenance/run.php update --quick 2>&1 || echo "WARNING: update.php had issues"
 
       - name: Run tests
+        env:
+          MATRIX_BATCH: ${{ matrix.batch }}
         run: |
           cd "${MW_DIR}"
           mkdir -p /tmp/test-results
@@ -336,11 +338,15 @@ jobs:
 
           mw_dir = os.environ["MW_DIR"]
           results_dir = "/tmp/test-results"
+          matrix_batch = os.environ.get("MATRIX_BATCH")
           entries = json.load(open("/tmp/installed_entries.json"))
 
           results = {"passed": [], "failed": [], "errored": [], "no_tests": []}
 
           for entry in entries:
+              if matrix_batch and entry.get("batch") != matrix_batch:
+                  continue
+
               name = entry["name"]
               kind = entry["kind"]
               base = os.path.join(mw_dir, "extensions" if kind == "extension" else "skins", name)

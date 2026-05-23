@@ -239,6 +239,35 @@ def build_manifest(yaml_path: str, skip_names: set[str] | None = None) -> dict:
     return manifest
 
 
+def get_batch_entries_with_dependencies(all_entries: list[dict], target_batch: str) -> list[dict]:
+    """
+    Get all entries belonging to target_batch plus all their transitive dependencies,
+    preserving topological order.
+    """
+    # 1. Start with entries that are directly in target_batch
+    batch_entries = [e for e in all_entries if e["batch"] == target_batch]
+    
+    # 2. Build map of name -> entry
+    name_map = {e["name"]: e for e in all_entries}
+    
+    # 3. Recursively find dependencies
+    resolved_names = set()
+    to_resolve = []
+    for e in batch_entries:
+        resolved_names.add(e["name"])
+        to_resolve.append(e)
+        
+    while to_resolve:
+        current = to_resolve.pop(0)
+        for dep_name in current.get("required_extensions", []):
+            if dep_name in name_map and dep_name not in resolved_names:
+                resolved_names.add(dep_name)
+                to_resolve.append(name_map[dep_name])
+                
+    # 4. Filter the original all_entries list to preserve topological order
+    return [e for e in all_entries if e["name"] in resolved_names]
+
+
 def main():
     parser = argparse.ArgumentParser(description="Parse RecommendedRevisions YAML files.")
     parser.add_argument("yaml_file", help="Path to the YAML file (e.g. 1.43.yaml)")
@@ -309,7 +338,7 @@ def main():
     if args.generate_localsettings:
         entries = manifest["entries"]
         if args.batch:
-            entries = [e for e in entries if e["batch"] == args.batch]
+            entries = get_batch_entries_with_dependencies(entries, args.batch)
         entries = [e for e in entries if not e.get("skip")]
         output = generate_localsettings_lines(entries)
         if args.output:
@@ -323,7 +352,7 @@ def main():
     # ── Default: full JSON manifest ──────────────────────────────────────
     entries = manifest["entries"]
     if args.batch:
-        manifest["entries"] = [e for e in entries if e["batch"] == args.batch]
+        manifest["entries"] = get_batch_entries_with_dependencies(entries, args.batch)
         manifest["total_entries"] = len(manifest["entries"])
 
     output = json.dumps(manifest, indent=2)
