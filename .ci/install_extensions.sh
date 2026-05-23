@@ -205,7 +205,7 @@ echo "==> Running database update..."
 cd "${MW_DIR}"
 
 # Install MediaWiki if not already installed.
-if ! php maintenance/run.php version 2>/dev/null; then
+if [ ! -f "${LOCALSETTINGS}" ]; then
     echo "  Installing MediaWiki..."
     php maintenance/run.php install \
         --dbtype=mysql \

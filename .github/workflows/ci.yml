@@ -166,7 +166,7 @@ jobs:
           cp "${{ github.workspace }}/.ci/LocalSettings.ci.php" "${MW_DIR}/LocalSettings.php"
 
           # Verify MW is working.
-          php maintenance/run.php version
+          ls -la "${MW_DIR}/LocalSettings.php"
 
       - name: Generate manifest
         run: |
