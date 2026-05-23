@@ -147,7 +147,7 @@ jobs:
           # Install development dependencies (needed for PHPUnit mocks/testing).
           echo "Installing MediaWiki dev dependencies..."
           cd /tmp/mediawiki
-          composer install --no-interaction --no-progress
+          composer install --no-interaction --no-progress --no-audit
 
           # Set MW_DIR for subsequent steps.
           echo "MW_DIR=/tmp/mediawiki" >> "$GITHUB_ENV"
