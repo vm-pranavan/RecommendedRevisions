@@ -1,0 +1,540 @@
+name: Extension/Skin Tests
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - '*.yaml'
+      - '.ci/**'
+      - '.github/workflows/ci.yml'
+      - 'scripts/**'
+  pull_request:
+    paths:
+      - '*.yaml'
+      - '.ci/**'
+      - '.github/workflows/ci.yml'
+      - 'scripts/**'
+  # Allow manual trigger for debugging.
+  workflow_dispatch:
+    inputs:
+      mw_version:
+        description: 'MediaWiki version (e.g. 1.43)'
+        required: false
+        default: '1.43'
+      batch:
+        description: 'Batch to test (leave empty for all)'
+        required: false
+        default: ''
+
+jobs:
+  # ────────────────────────────────────────────────────────────────────────────
+  # Job 1: Parse the YAML and determine which batches to run.
+  # ────────────────────────────────────────────────────────────────────────────
+  parse:
+    name: Parse YAML
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.parse.outputs.matrix }}
+      yaml_file: ${{ steps.detect.outputs.yaml_file }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Detect YAML file
+        id: detect
+        run: |
+          # Use the manually specified version, or default to 1.43 (current LTS).
+          MW_VERSION="${{ github.event.inputs.mw_version || '1.43' }}"
+          YAML_FILE="${MW_VERSION}.yaml"
+          if [ ! -f "${YAML_FILE}" ]; then
+            echo "ERROR: ${YAML_FILE} not found!"
+            exit 1
+          fi
+          echo "yaml_file=${YAML_FILE}" >> "$GITHUB_OUTPUT"
+          echo "Using YAML file: ${YAML_FILE}"
+
+      - name: Validate YAML
+        run: |
+          python scripts/parse_yaml.py "${{ steps.detect.outputs.yaml_file }}" --validate
+
+      - name: Generate batch matrix
+        id: parse
+        run: |
+          if [ -n "${{ github.event.inputs.batch }}" ]; then
+            # Manual trigger with specific batch.
+            echo "matrix=[\"${{ github.event.inputs.batch }}\"]" >> "$GITHUB_OUTPUT"
+          else
+            MATRIX=$(python scripts/parse_yaml.py "${{ steps.detect.outputs.yaml_file }}" --matrix)
+            echo "matrix=${MATRIX}" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Matrix: $(cat "$GITHUB_OUTPUT" | grep matrix)"
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # Job 2: Install and test extensions/skins for each batch.
+  # ────────────────────────────────────────────────────────────────────────────
+  test:
+    name: "Test (${{ matrix.batch }})"
+    needs: parse
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false  # Don't cancel other batches if one fails.
+      matrix:
+        batch: ${{ fromJson(needs.parse.outputs.matrix) }}
+
+    services:
+      db:
+        image: mariadb:10.6
+        env:
+          MYSQL_ROOT_PASSWORD: ci_root_password
+          MYSQL_DATABASE: mediawiki
+          MYSQL_USER: wiki
+          MYSQL_PASSWORD: wiki_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      MW_VERSION: ${{ github.event.inputs.mw_version || '1.43' }}
+      MW_DB_SERVER: 127.0.0.1
+      MW_DB_NAME: mediawiki
+      MW_DB_USER: wiki
+      MW_DB_PASS: wiki_password
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: composer-${{ env.MW_VERSION }}-${{ matrix.batch }}-${{ hashFiles('*.yaml') }}
+          restore-keys: |
+            composer-${{ env.MW_VERSION }}-${{ matrix.batch }}-
+            composer-${{ env.MW_VERSION }}-
+
+      - name: Set up MediaWiki
+        run: |
+          # Download and extract MediaWiki.
+          MW_MAJOR_MINOR="${MW_VERSION}"
+          echo "Downloading MediaWiki ${MW_MAJOR_MINOR}..."
+
+          # Use the MediaWiki release tarball for a quick setup.
+          MW_DOWNLOAD_URL="https://releases.wikimedia.org/mediawiki/${MW_MAJOR_MINOR}/mediawiki-${MW_MAJOR_MINOR}.0.tar.gz"
+          mkdir -p /tmp/mediawiki
+          curl -sL "${MW_DOWNLOAD_URL}" | tar xz --strip-components=1 -C /tmp/mediawiki
+
+          # Set MW_DIR for subsequent steps.
+          echo "MW_DIR=/tmp/mediawiki" >> "$GITHUB_ENV"
+
+      - name: Install MediaWiki
+        run: |
+          cd "${MW_DIR}"
+
+          # Install MediaWiki with the CI database.
+          php maintenance/run.php install \
+            --dbtype=mysql \
+            --dbserver="${MW_DB_SERVER}" \
+            --dbname="${MW_DB_NAME}" \
+            --dbuser="${MW_DB_USER}" \
+            --dbpass="${MW_DB_PASS}" \
+            --pass=ci_admin_password \
+            --scriptpath="" \
+            "RecommendedRevisions CI" "Admin"
+
+          # Replace LocalSettings with our CI version.
+          cp "${{ github.workspace }}/.ci/LocalSettings.ci.php" "${MW_DIR}/LocalSettings.php"
+
+          # Verify MW is working.
+          php maintenance/run.php version
+
+      - name: Generate manifest
+        run: |
+          python scripts/parse_yaml.py \
+            "${{ needs.parse.outputs.yaml_file }}" \
+            --ci-dir .ci \
+            --batch "${{ matrix.batch }}" \
+            -o /tmp/manifest.json
+
+          echo "Manifest entries: $(python3 -c "import json; print(json.load(open('/tmp/manifest.json'))['total_entries'])")"
+
+      - name: Install extensions/skins
+        run: |
+          cd "${MW_DIR}"
+          python3 - /tmp/manifest.json "${MW_DIR}" "${{ github.workspace }}/.ci/LocalSettings.ci.php" <<'INSTALL_SCRIPT'
+          import json
+          import os
+          import subprocess
+          import sys
+
+          manifest_path = sys.argv[1]
+          mw_dir = sys.argv[2]
+          ls_template = sys.argv[3]
+
+          with open(manifest_path) as f:
+              manifest = json.load(f)
+
+          entries = manifest["entries"]
+          installed = []
+          skipped_entries = []
+
+          for entry in entries:
+              name = entry["name"]
+              kind = entry["kind"]
+              bundled = entry["bundled"]
+              repo = entry["repository"]
+              branch = entry["branch"]
+              commit = entry.get("commit")
+              skip = entry.get("skip", False)
+
+              target_dir = os.path.join(
+                  mw_dir,
+                  "extensions" if kind == "extension" else "skins",
+                  name,
+              )
+
+              if skip:
+                  print(f"  SKIP  {kind:9s}  {name}  ({entry.get('skip_reason', 'unknown')})")
+                  skipped_entries.append(name)
+                  continue
+
+              if bundled:
+                  if os.path.isdir(target_dir):
+                      print(f"  OK    {kind:9s}  {name}  (bundled)")
+                      installed.append(name)
+                  else:
+                      print(f"  WARN  {kind:9s}  {name}  (bundled but missing!)")
+                      skipped_entries.append(name)
+                  continue
+
+              # Clone.
+              if not os.path.isdir(target_dir):
+                  print(f"  CLONE {kind:8s}  {name}  <- {repo}")
+                  result = subprocess.run(
+                      ["git", "clone", "--branch", branch, "--single-branch",
+                       "--depth", "50", repo, target_dir],
+                      capture_output=True, text=True,
+                  )
+                  if result.returncode != 0:
+                      print(f"  ERROR cloning {name}: {result.stderr.strip()}")
+                      skipped_entries.append(name)
+                      continue
+
+              # Checkout commit.
+              if commit:
+                  result = subprocess.run(
+                      ["git", "checkout", commit],
+                      cwd=target_dir, capture_output=True, text=True,
+                  )
+                  if result.returncode != 0:
+                      subprocess.run(["git", "fetch", "--unshallow"], cwd=target_dir,
+                                     capture_output=True, check=False)
+                      result = subprocess.run(
+                          ["git", "checkout", commit],
+                          cwd=target_dir, capture_output=True, text=True,
+                      )
+                      if result.returncode != 0:
+                          print(f"  ERROR checkout {name}: {result.stderr.strip()}")
+                          skipped_entries.append(name)
+                          continue
+
+              installed.append(name)
+
+          # Additional steps (composer update, submodules).
+          print("\nRunning additional steps...")
+          for entry in entries:
+              name = entry["name"]
+              if name in skipped_entries:
+                  continue
+              kind = entry["kind"]
+              target_dir = os.path.join(
+                  mw_dir, "extensions" if kind == "extension" else "skins", name,
+              )
+              for step in entry.get("additional_steps", []):
+                  if step == "database update":
+                      continue
+                  elif step == "composer update":
+                      if os.path.isfile(os.path.join(target_dir, "composer.json")):
+                          print(f"  COMPOSER  {name}")
+                          subprocess.run(
+                              ["composer", "update", "--no-interaction", "--no-progress",
+                               "--prefer-dist", "--no-dev"],
+                              cwd=target_dir, capture_output=True, check=False,
+                          )
+                  elif step == "git submodule update":
+                      print(f"  SUBMODULE {name}")
+                      subprocess.run(
+                          ["git", "submodule", "update", "--init", "--recursive"],
+                          cwd=target_dir, capture_output=True, check=False,
+                      )
+
+          # Append load lines to LocalSettings.php.
+          print("\nAppending load lines to LocalSettings.php...")
+          ls_path = os.path.join(mw_dir, "LocalSettings.php")
+          load_lines = []
+          for entry in entries:
+              name = entry["name"]
+              if name in skipped_entries:
+                  continue
+              kind = entry["kind"]
+              target_dir = os.path.join(
+                  mw_dir, "extensions" if kind == "extension" else "skins", name,
+              )
+              if not os.path.isdir(target_dir):
+                  continue
+              fn = "wfLoadExtension" if kind == "extension" else "wfLoadSkin"
+              load_lines.append(f'{fn}( \'{name}\' );')
+
+          with open(ls_path, "a") as f:
+              f.write("\n".join(load_lines) + "\n")
+
+          print(f"Added {len(load_lines)} load lines.")
+
+          # Save installed entries for test runner.
+          with open("/tmp/installed_entries.json", "w") as f:
+              json.dump([e for e in entries if e["name"] not in skipped_entries], f, indent=2)
+
+          print(f"\nInstalled: {len(installed)}, Skipped: {len(skipped_entries)}")
+          INSTALL_SCRIPT
+
+      - name: Run database update
+        run: |
+          cd "${MW_DIR}"
+          php maintenance/run.php update --quick 2>&1 || echo "WARNING: update.php had issues"
+
+      - name: Run tests
+        run: |
+          cd "${MW_DIR}"
+          mkdir -p /tmp/test-results
+
+          python3 <<'TEST_RUNNER'
+          import json
+          import os
+          import subprocess
+          import sys
+          import xml.etree.ElementTree as ET
+
+          mw_dir = os.environ["MW_DIR"]
+          results_dir = "/tmp/test-results"
+          entries = json.load(open("/tmp/installed_entries.json"))
+
+          results = {"passed": [], "failed": [], "errored": [], "no_tests": []}
+
+          for entry in entries:
+              name = entry["name"]
+              kind = entry["kind"]
+              base = os.path.join(mw_dir, "extensions" if kind == "extension" else "skins", name)
+              test_dir = os.path.join(base, "tests", "phpunit")
+
+              if not os.path.isdir(test_dir):
+                  results["no_tests"].append(name)
+                  continue
+
+              print(f"\n{'='*60}")
+              print(f"Testing {kind}: {name}")
+              print(f"{'='*60}")
+
+              result_file = os.path.join(results_dir, f"{name}.xml")
+
+              # Determine runner.
+              phpunit_runner = os.path.join(mw_dir, "tests", "phpunit", "phpunit.php")
+              if not os.path.isfile(phpunit_runner):
+                  print(f"  No PHPUnit runner found, skipping")
+                  results["errored"].append(name)
+                  continue
+
+              try:
+                  proc = subprocess.run(
+                      ["php", phpunit_runner, "--log-junit", result_file, test_dir],
+                      cwd=mw_dir,
+                      capture_output=True,
+                      text=True,
+                      timeout=300,
+                  )
+                  # Print last 15 lines of output.
+                  output_lines = (proc.stdout + proc.stderr).strip().split("\n")
+                  for line in output_lines[-15:]:
+                      print(f"  {line}")
+
+                  if proc.returncode == 0:
+                      print(f"\n  ✅ PASSED: {name}")
+                      results["passed"].append(name)
+                  else:
+                      print(f"\n  ❌ FAILED: {name} (exit {proc.returncode})")
+                      results["failed"].append(name)
+              except subprocess.TimeoutExpired:
+                  print(f"\n  ⏱️  TIMEOUT: {name}")
+                  results["errored"].append(name)
+              except Exception as e:
+                  print(f"\n  ⚠️  ERROR: {name}: {e}")
+                  results["errored"].append(name)
+
+          # Summary.
+          print(f"\n{'='*60}")
+          print("TEST SUMMARY")
+          print(f"{'='*60}")
+          print(f"  ✅ Passed:   {len(results['passed'])}")
+          print(f"  ❌ Failed:   {len(results['failed'])}")
+          print(f"  ⚠️  Errored:  {len(results['errored'])}")
+          print(f"  📭 No tests: {len(results['no_tests'])}")
+
+          if results["failed"]:
+              print(f"\n  Failed: {', '.join(results['failed'])}")
+
+          # Write summary JSON.
+          with open(os.path.join(results_dir, "summary.json"), "w") as f:
+              json.dump(results, f, indent=2)
+
+          # Exit with failure if any tests failed.
+          if results["failed"]:
+              sys.exit(1)
+          TEST_RUNNER
+
+      - name: Generate step summary
+        if: always()
+        run: |
+          python3 <<'STEP_SUMMARY'
+          import json
+          import os
+
+          results_dir = "/tmp/test-results"
+          summary_path = os.path.join(results_dir, "summary.json")
+
+          if not os.path.exists(summary_path):
+              print("No summary found.")
+              exit(0)
+
+          results = json.load(open(summary_path))
+          gh_summary = os.environ.get("GITHUB_STEP_SUMMARY", "/dev/null")
+
+          lines = [
+              "## 🧪 Test Results: ${{ matrix.batch }}",
+              "",
+              "| Status | Count |",
+              "|--------|-------|",
+              f"| ✅ Passed | {len(results.get('passed', []))} |",
+              f"| ❌ Failed | {len(results.get('failed', []))} |",
+              f"| ⚠️ Errored | {len(results.get('errored', []))} |",
+              f"| 📭 No tests | {len(results.get('no_tests', []))} |",
+              "",
+          ]
+
+          if results.get("failed"):
+              lines.append("### ❌ Failed")
+              for name in results["failed"]:
+                  lines.append(f"- {name}")
+              lines.append("")
+
+          if results.get("passed"):
+              lines.append(f"<details><summary>✅ Passed ({len(results['passed'])})</summary>")
+              lines.append("")
+              for name in sorted(results["passed"]):
+                  lines.append(f"- {name}")
+              lines.append("")
+              lines.append("</details>")
+
+          with open(gh_summary, "a") as f:
+              f.write("\n".join(lines) + "\n")
+          STEP_SUMMARY
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.batch }}
+          path: /tmp/test-results/
+          retention-days: 14
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # Job 3: Aggregate results and produce final report.
+  # ────────────────────────────────────────────────────────────────────────────
+  report:
+    name: Report
+    needs: test
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Download all test results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: test-results-*
+          path: all-results/
+          merge-multiple: false
+
+      - name: Aggregate results
+        run: |
+          python3 <<'AGGREGATE'
+          import json
+          import os
+
+          all_results = {"passed": [], "failed": [], "errored": [], "no_tests": []}
+
+          results_base = "all-results"
+          for batch_dir in sorted(os.listdir(results_base)):
+              summary_path = os.path.join(results_base, batch_dir, "summary.json")
+              if not os.path.exists(summary_path):
+                  continue
+              batch_results = json.load(open(summary_path))
+              for key in all_results:
+                  all_results[key].extend(batch_results.get(key, []))
+
+          total = sum(len(v) for v in all_results.values())
+          gh_summary = os.environ.get("GITHUB_STEP_SUMMARY", "/dev/null")
+
+          lines = [
+              "# 🧪 Extension/Skin Test Results — All Batches",
+              "",
+              f"**{total} extensions/skins processed**",
+              "",
+              "| Status | Count |",
+              "|--------|-------|",
+              f"| ✅ Passed | {len(all_results['passed'])} |",
+              f"| ❌ Failed | {len(all_results['failed'])} |",
+              f"| ⚠️ Errored | {len(all_results['errored'])} |",
+              f"| 📭 No tests | {len(all_results['no_tests'])} |",
+              "",
+          ]
+
+          if all_results["failed"]:
+              lines.append("## ❌ Failed Extensions")
+              for name in sorted(all_results["failed"]):
+                  lines.append(f"- {name}")
+              lines.append("")
+
+          if all_results["passed"]:
+              lines.append(f"<details><summary>✅ Passed ({len(all_results['passed'])})</summary>")
+              lines.append("")
+              for name in sorted(all_results["passed"]):
+                  lines.append(f"- {name}")
+              lines.append("")
+              lines.append("</details>")
+
+          with open(gh_summary, "a") as f:
+              f.write("\n".join(lines) + "\n")
+
+          print("\n".join(lines))
+
+          # Fail the report job if any batch had failures.
+          if all_results["failed"]:
+              print(f"\n::error::{len(all_results['failed'])} extension(s) had test failures.")
+          AGGREGATE

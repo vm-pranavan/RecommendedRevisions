@@ -1,0 +1,41 @@
+# Extensions/skins to skip during CI testing.
+# These require external services or credentials that are not available in
+# a standard GitHub Actions environment.
+#
+# Each entry has:
+#   name   — the extension/skin name (must match the YAML key exactly)
+#   reason — human-readable explanation of why it is skipped
+
+skip:
+  - name: CirrusSearch
+    reason: Requires Elasticsearch service
+  - name: Elastica
+    reason: Requires Elasticsearch service
+  - name: LDAPAuthentication2
+    reason: Requires an LDAP server
+  - name: LDAPAuthorization
+    reason: Requires an LDAP server
+  - name: LDAPProvider
+    reason: Requires an LDAP server
+  - name: AWS
+    reason: Requires AWS credentials and S3 access
+  - name: GoogleAnalyticsMetrics
+    reason: Requires Google Analytics credentials
+  - name: GoogleDocCreator
+    reason: Requires Google API credentials
+  - name: GTag
+    reason: Requires Google Tag Manager configuration
+  - name: Math
+    reason: Requires Mathoid or Texvc rendering service
+  - name: OAuth
+    reason: Requires OAuth consumer configuration
+  - name: OpenIDConnect
+    reason: Requires an OIDC identity provider
+  - name: JWTAuth
+    reason: Requires JWT token issuer configuration
+  - name: WSOAuth
+    reason: Requires OAuth provider configuration
+  - name: EmailAuthorization
+    reason: Requires email server and PluggableAuth provider setup
+  - name: Maps
+    reason: Requires Google Maps API key or tile server
