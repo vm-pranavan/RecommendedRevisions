@@ -144,6 +144,11 @@ jobs:
           mkdir -p /tmp/mediawiki
           curl -sL "${MW_DOWNLOAD_URL}" | tar xz --strip-components=1 -C /tmp/mediawiki
 
+          # Install development dependencies (needed for PHPUnit mocks/testing).
+          echo "Installing MediaWiki dev dependencies..."
+          cd /tmp/mediawiki
+          composer install --no-interaction --no-progress
+
           # Set MW_DIR for subsequent steps.
           echo "MW_DIR=/tmp/mediawiki" >> "$GITHUB_ENV"
 
