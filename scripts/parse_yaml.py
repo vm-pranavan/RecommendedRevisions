@@ -221,6 +221,21 @@ def build_manifest(yaml_path: str, skip_names: set[str] | None = None) -> dict:
                 e["skip"] = True
                 e["skip_reason"] = "In skip_list.yaml"
 
+        # Transitive skipping: if a required extension is skipped, skip this one too.
+        changed = True
+        while changed:
+            changed = False
+            for e in all_entries:
+                if e.get("skip"):
+                    continue
+                for dep in e.get("required_extensions", []):
+                    dep_entry = next((x for x in all_entries if x["name"] == dep), None)
+                    if dep_entry and dep_entry.get("skip"):
+                        e["skip"] = True
+                        e["skip_reason"] = f"Requires skipped extension: {dep}"
+                        changed = True
+                        break
+
     # Sort by dependencies.
     all_entries = topological_sort(all_entries)
 
