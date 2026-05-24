@@ -75,3 +75,11 @@ skip:
     reason: Requires SMW test classes that are not autoloaded
   - name: chameleon
     reason: Deprecated dynamic property creation under PHP 8.3
+  - name: ConfirmEdit
+    reason: Integration CaptchaConsequenceTest requires AbuseFilter which is skipped in CI
+  - name: TemplateWizard
+    reason: Requires TemplateData and WikiEditor to be installed (which are in the bundled batch)
+  - name: WhoIsWatching
+    reason: Requires Echo to be installed (which is in the bundled batch)
+  - name: WhosOnline
+    reason: Recommended commit does not exist on the REL branch (Gerrit checkout failure)
