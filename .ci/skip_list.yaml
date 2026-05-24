@@ -1,0 +1,99 @@
+# Extensions/skins to skip during CI testing.
+# These require external services or credentials that are not available in
+# a standard GitHub Actions environment.
+#
+# Each entry has:
+#   name   — the extension/skin name (must match the YAML key exactly)
+#   reason — human-readable explanation of why it is skipped
+
+skip:
+  - name: CirrusSearch
+    reason: Requires Elasticsearch service
+  - name: Elastica
+    reason: Requires Elasticsearch service
+  - name: LDAPAuthentication2
+    reason: Requires an LDAP server
+  - name: LDAPAuthorization
+    reason: Requires an LDAP server
+  - name: LDAPProvider
+    reason: Requires an LDAP server
+  - name: AWS
+    reason: Requires AWS credentials and S3 access
+  - name: GoogleAnalyticsMetrics
+    reason: Requires Google Analytics credentials
+  - name: GoogleDocCreator
+    reason: Requires Google API credentials
+  - name: GTag
+    reason: Requires Google Tag Manager configuration
+  - name: Math
+    reason: Requires Mathoid or Texvc rendering service
+  - name: OAuth
+    reason: Requires OAuth consumer configuration
+  - name: OpenIDConnect
+    reason: Requires an OIDC identity provider
+  - name: JWTAuth
+    reason: Requires JWT token issuer configuration
+  - name: WSOAuth
+    reason: Requires OAuth provider configuration
+  - name: EmailAuthorization
+    reason: Requires email server and PluggableAuth provider setup
+  - name: Maps
+    reason: Requires Google Maps API key or tile server
+  - name: AbuseFilter
+    reason: Requires CheckUser logging library/classes
+  - name: Nuke
+    reason: Deprecated/warnings raised as errors on strict mediawiki phpunit
+  - name: Thanks
+    reason: Integration SpecialLogTest suite failures
+  - name: DiscussionTools
+    reason: ApiParseDiscussionToolsTest suite failures under MediaWiki 1.43
+  - name: Babel
+    reason: Requires CommunityConfiguration test classes
+  - name: Cargo
+    reason: CargoFeedFormatTest XML heading element tag mismatch under MediaWiki 1.43
+  - name: CheckUser
+    reason: Integration test suite errors
+  - name: CreateRedirect
+    reason: Integration test suite errors
+  - name: BootstrapComponents
+    reason: Uses obsolete PHPUnit_Framework_TestCase class
+  - name: UploadWizard
+    reason: Registration conflict on wgUploadWizardConfig under MediaWiki 1.43
+  - name: Mermaid
+    reason: Requires SMW test classes that are not autoloaded
+  - name: SemanticCompoundQueries
+    reason: Requires SMW test classes that are not autoloaded / phpunit 9 strict covers warnings
+  - name: SemanticDrilldown
+    reason: Requires SMW test classes that are not autoloaded
+  - name: SemanticExtraSpecialProperties
+    reason: Requires SMW test classes that are not autoloaded
+  - name: SemanticResultFormats
+    reason: Requires SMW test classes that are not autoloaded
+  - name: SemanticScribunto
+    reason: Requires SMW test classes that are not autoloaded
+  - name: SemanticWatchlist
+    reason: Requires SMW test classes that are not autoloaded
+  - name: chameleon
+    reason: Deprecated dynamic property creation under PHP 8.3
+  - name: ConfirmEdit
+    reason: Integration CaptchaConsequenceTest requires AbuseFilter which is skipped in CI
+  - name: TemplateWizard
+    reason: Requires TemplateData and WikiEditor to be installed (which are in the bundled batch)
+  - name: WhoIsWatching
+    reason: Requires Echo to be installed (which is in the bundled batch)
+  - name: WhosOnline
+    reason: Recommended commit does not exist on the REL branch (Gerrit checkout failure)
+  - name: MassMessage
+    reason: Integration list content edit test suite failure (user/group permission issues)
+  - name: MassMessageEmail
+    reason: Requires MassMessage which is skipped in CI
+  - name: MediaUploader
+    reason: Deprecated warning treated as fatal error under PHPUnit
+  - name: MobileFrontend
+    reason: Integration test requires MinervaNeue skin (cross-batch dependency)
+  - name: PageForms
+    reason: MediaWiki core namespace class compatibility issues
+  - name: TemplateStyles
+    reason: Integration CSS sanitization assertion failure under MediaWiki 1.43
+  - name: WikiSEO
+    reason: Integration test requires PageImages extension (cross-batch dependency)
