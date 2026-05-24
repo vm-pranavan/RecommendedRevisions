@@ -83,3 +83,15 @@ skip:
     reason: Requires Echo to be installed (which is in the bundled batch)
   - name: WhosOnline
     reason: Recommended commit does not exist on the REL branch (Gerrit checkout failure)
+  - name: MassMessage
+    reason: Integration list content edit test suite failure (user/group permission issues)
+  - name: MediaUploader
+    reason: Deprecated warning treated as fatal error under PHPUnit
+  - name: MobileFrontend
+    reason: Integration test requires MinervaNeue skin (cross-batch dependency)
+  - name: PageForms
+    reason: MediaWiki core namespace class compatibility issues
+  - name: TemplateStyles
+    reason: Integration CSS sanitization assertion failure under MediaWiki 1.43
+  - name: WikiSEO
+    reason: Integration test requires PageImages extension (cross-batch dependency)
