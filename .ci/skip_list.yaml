@@ -85,6 +85,8 @@ skip:
     reason: Recommended commit does not exist on the REL branch (Gerrit checkout failure)
   - name: MassMessage
     reason: Integration list content edit test suite failure (user/group permission issues)
+  - name: MassMessageEmail
+    reason: Requires MassMessage which is skipped in CI
   - name: MediaUploader
     reason: Deprecated warning treated as fatal error under PHPUnit
   - name: MobileFrontend
