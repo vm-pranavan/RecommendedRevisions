@@ -64,3 +64,21 @@ $wgGroupPermissions['*']['edit'] = false;
 #
 # For co-existence group tests and legacy all-in-one mode, load lines are
 # appended below this point by the install script.
+
+# ── Compatibility class aliases ──────────────────────────────────────────────
+# Workaround for extensions written for newer MediaWiki versions that expect namespaced core classes.
+if ( !class_exists( 'MediaWiki\Page\Article' ) && class_exists( 'Article' ) ) {
+    class_alias( 'Article', 'MediaWiki\Page\Article' );
+}
+
+# ── Test autoloading for SMW extensions ──────────────────────────────────────
+# Autoload SMW test classes (like JsonTestCaseScriptRunnerTest) for dependent extensions.
+spl_autoload_register( function ( $class ) {
+    if ( strpos( $class, 'SMW\\Tests\\' ) === 0 ) {
+        $relPath = str_replace( '\\', '/', substr( $class, 10 ) ) . '.php';
+        $file = $GLOBALS['IP'] . '/extensions/SemanticMediaWiki/tests/phpunit/' . $relPath;
+        if ( file_exists( $file ) ) {
+            require_once $file;
+        }
+    }
+} );
