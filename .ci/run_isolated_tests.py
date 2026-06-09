@@ -101,7 +101,7 @@ def run_load_test(mw_dir: str, name: str) -> tuple[bool, str]:
     """
     try:
         result = subprocess.run(
-            ["php", "-r", f"define('MW_CONFIG_CALLBACK', 'wfSetupDone'); require_once '{mw_dir}/includes/WebStart.php';"],
+            ["php", "-r", f"function wfSetupDone() {{}} define('MW_CONFIG_CALLBACK', 'wfSetupDone'); require_once '{mw_dir}/includes/WebStart.php';"],
             cwd=mw_dir,
             capture_output=True,
             text=True,
