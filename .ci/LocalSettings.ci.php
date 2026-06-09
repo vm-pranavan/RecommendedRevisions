@@ -58,7 +58,33 @@ $wgGroupPermissions['*']['read'] = true;
 $wgGroupPermissions['*']['edit'] = false;
 
 # ── Extensions & skins ──────────────────────────────────────────────────────
-# The lines below are auto-appended by .ci/install_extensions.sh.
-# Do not manually add wfLoadExtension / wfLoadSkin calls above this line.
+# Extension/skin load lines are generated dynamically per test run by
+# .ci/run_isolated_tests.py. Each extension is tested in isolation with
+# only its declared dependencies loaded.
+#
+# For co-existence group tests and legacy all-in-one mode, load lines are
+# appended below this point by the install script.
 
-# --- BEGIN AUTO-GENERATED EXTENSION LOADS ---
+# ── Compatibility class aliases ──────────────────────────────────────────────
+# Workaround for extensions written for newer MediaWiki versions that expect namespaced core classes.
+# Avoid defining the alias if CrawlerProtection is loaded, as it unconditionally defines it.
+$isCrawlerProtection = false;
+if ( file_exists( __FILE__ ) ) {
+    $isCrawlerProtection = strpos( file_get_contents( __FILE__ ), 'CrawlerProtection' ) !== false;
+}
+if ( !$isCrawlerProtection && !class_exists( 'MediaWiki\Page\Article' ) && class_exists( 'Article' ) ) {
+    class_alias( 'Article', 'MediaWiki\Page\Article' );
+}
+
+
+# ── Test autoloading for SMW extensions ──────────────────────────────────────
+# Autoload SMW test classes (like JsonTestCaseScriptRunnerTest) for dependent extensions.
+spl_autoload_register( function ( $class ) {
+    if ( strpos( $class, 'SMW\\Tests\\' ) === 0 ) {
+        $relPath = str_replace( '\\', '/', substr( $class, 10 ) ) . '.php';
+        $file = $GLOBALS['IP'] . '/extensions/SemanticMediaWiki/tests/phpunit/' . $relPath;
+        if ( file_exists( $file ) ) {
+            require_once $file;
+        }
+    }
+} );
