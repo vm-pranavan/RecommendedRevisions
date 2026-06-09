@@ -629,11 +629,8 @@ jobs:
           # Verify MediaWiki loads without fatal.
           print("\nVerifying MediaWiki loads cleanly with all group members...")
           verify = subprocess.run(
-              ["php", "-r",
-               "function wfSetupDone() {} "
-               "define('MW_CONFIG_CALLBACK', 'wfSetupDone'); "
-               f"require_once '{mw_dir}/includes/WebStart.php'; "
-               "echo 'OK';"],
+              ["php", "maintenance/run.php", "eval"],
+              input="echo 'OK';\n",
               cwd=mw_dir, capture_output=True, text=True, timeout=60,
           )
 
