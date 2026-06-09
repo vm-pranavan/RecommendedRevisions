@@ -108,3 +108,8 @@ upstream_test_compat:
     reason: Integration test suite errors / dependency on SMW test classes
   - name: SemanticScribunto
     reason: Integration test suite errors / dependency on SMW test classes
+  - name: Cargo
+    reason: Fails 1 test inside its own suite under PHP 8.3/MW 1.43
+  - name: PageForms
+    reason: Fails assertions and has errors due to environment differences under MW 1.43
+

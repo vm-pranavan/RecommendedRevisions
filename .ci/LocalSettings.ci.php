@@ -67,9 +67,15 @@ $wgGroupPermissions['*']['edit'] = false;
 
 # ── Compatibility class aliases ──────────────────────────────────────────────
 # Workaround for extensions written for newer MediaWiki versions that expect namespaced core classes.
-if ( !class_exists( 'MediaWiki\Page\Article' ) && class_exists( 'Article' ) ) {
+# Avoid defining the alias if CrawlerProtection is loaded, as it unconditionally defines it.
+$isCrawlerProtection = false;
+if ( file_exists( __FILE__ ) ) {
+    $isCrawlerProtection = strpos( file_get_contents( __FILE__ ), 'CrawlerProtection' ) !== false;
+}
+if ( !$isCrawlerProtection && !class_exists( 'MediaWiki\Page\Article' ) && class_exists( 'Article' ) ) {
     class_alias( 'Article', 'MediaWiki\Page\Article' );
 }
+
 
 # ── Test autoloading for SMW extensions ──────────────────────────────────────
 # Autoload SMW test classes (like JsonTestCaseScriptRunnerTest) for dependent extensions.
