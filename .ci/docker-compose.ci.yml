@@ -45,6 +45,8 @@ services:
       # Mount the extension/skin install + test scripts.
       - ./install_extensions.sh:/ci/install_extensions.sh:ro
       - ./run_tests.sh:/ci/run_tests.sh:ro
+      - ./run_isolated_tests.py:/ci/run_isolated_tests.py:ro
+      - ./coexistence_groups.yaml:/ci/coexistence_groups.yaml:ro
       # Mount the repo root so we can access the YAML and scripts.
       - ..:/ci/repo:ro
       # Writable directory for test results.

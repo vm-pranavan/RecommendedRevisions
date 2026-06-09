@@ -58,7 +58,9 @@ $wgGroupPermissions['*']['read'] = true;
 $wgGroupPermissions['*']['edit'] = false;
 
 # ── Extensions & skins ──────────────────────────────────────────────────────
-# The lines below are auto-appended by .ci/install_extensions.sh.
-# Do not manually add wfLoadExtension / wfLoadSkin calls above this line.
-
-# --- BEGIN AUTO-GENERATED EXTENSION LOADS ---
+# Extension/skin load lines are generated dynamically per test run by
+# .ci/run_isolated_tests.py. Each extension is tested in isolation with
+# only its declared dependencies loaded.
+#
+# For co-existence group tests and legacy all-in-one mode, load lines are
+# appended below this point by the install script.

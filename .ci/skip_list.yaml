@@ -1,12 +1,27 @@
-# Extensions/skins to skip during CI testing.
-# These require external services or credentials that are not available in
-# a standard GitHub Actions environment.
+# Extensions/skins to skip or flag during CI testing.
 #
-# Each entry has:
-#   name   — the extension/skin name (must match the YAML key exactly)
-#   reason — human-readable explanation of why it is skipped
+# This file is organized into two categories:
+#
+#   external_services  — Requires infrastructure not available in CI (Elasticsearch,
+#                        LDAP, AWS, etc.). These skip ALL validation phases.
+#                        This bucket should shrink over time as services are wired up.
+#
+#   upstream_test_compat — The extension loads and registers fine, but its test suite
+#                          has known incompatibilities with MW 1.43 / PHP 8.3 / PHPUnit.
+#                          These ARE validated (checkout, composer, load) but test
+#                          failures are surfaced as non-blocking warnings.
+#
+# Extensions previously skipped for cross-batch dependencies, missing sibling test
+# classes, or integration-only failures have been REMOVED from this list because
+# per-extension isolated testing (with only declared deps loaded) resolves them.
 
-skip:
+# ── Extensions requiring external services ───────────────────────────────────
+# These cannot be loaded or tested without infrastructure not yet wired up
+# in CI. Elasticsearch (covering CirrusSearch + Elastica) is the obvious first
+# candidate to add as a CI service container; an LDAP stub or OAuth/OIDC mock
+# are feasible follow-ups.
+
+external_services:
   - name: CirrusSearch
     reason: Requires Elasticsearch service
   - name: Elastica
@@ -41,59 +56,39 @@ skip:
     reason: Requires Google Maps API key or tile server
   - name: AbuseFilter
     reason: Requires CheckUser logging library/classes
-  - name: Nuke
-    reason: Deprecated/warnings raised as errors on strict mediawiki phpunit
-  - name: Thanks
-    reason: Integration SpecialLogTest suite failures
-  - name: DiscussionTools
-    reason: ApiParseDiscussionToolsTest suite failures under MediaWiki 1.43
-  - name: Babel
-    reason: Requires CommunityConfiguration test classes
-  - name: Cargo
-    reason: CargoFeedFormatTest XML heading element tag mismatch under MediaWiki 1.43
-  - name: CheckUser
-    reason: Integration test suite errors
-  - name: CreateRedirect
-    reason: Integration test suite errors
+
+# ── Extensions with upstream test suite compatibility issues ──────────────────
+# These extensions load and register correctly, so they ARE validated for:
+#   ✅ commit checkout
+#   ✅ composer install
+#   ✅ wfLoadExtension (with declared deps)
+#
+# But their test suites have known issues under MW 1.43 / PHP 8.3 that are
+# NOT recommendation-validity problems. Test failures are surfaced in a
+# separate non-blocking report section.
+
+upstream_test_compat:
   - name: BootstrapComponents
     reason: Uses obsolete PHPUnit_Framework_TestCase class
-  - name: UploadWizard
-    reason: Registration conflict on wgUploadWizardConfig under MediaWiki 1.43
-  - name: Mermaid
-    reason: Requires SMW test classes that are not autoloaded
-  - name: SemanticCompoundQueries
-    reason: Requires SMW test classes that are not autoloaded / phpunit 9 strict covers warnings
-  - name: SemanticDrilldown
-    reason: Requires SMW test classes that are not autoloaded
-  - name: SemanticExtraSpecialProperties
-    reason: Requires SMW test classes that are not autoloaded
-  - name: SemanticResultFormats
-    reason: Requires SMW test classes that are not autoloaded
-  - name: SemanticScribunto
-    reason: Requires SMW test classes that are not autoloaded
-  - name: SemanticWatchlist
-    reason: Requires SMW test classes that are not autoloaded
   - name: chameleon
     reason: Deprecated dynamic property creation under PHP 8.3
-  - name: ConfirmEdit
-    reason: Integration CaptchaConsequenceTest requires AbuseFilter which is skipped in CI
-  - name: TemplateWizard
-    reason: Requires TemplateData and WikiEditor to be installed (which are in the bundled batch)
-  - name: WhoIsWatching
-    reason: Requires Echo to be installed (which is in the bundled batch)
-  - name: WhosOnline
-    reason: Recommended commit does not exist on the REL branch (Gerrit checkout failure)
-  - name: MassMessage
-    reason: Integration list content edit test suite failure (user/group permission issues)
-  - name: MassMessageEmail
-    reason: Requires MassMessage which is skipped in CI
   - name: MediaUploader
     reason: Deprecated warning treated as fatal error under PHPUnit
-  - name: MobileFrontend
-    reason: Integration test requires MinervaNeue skin (cross-batch dependency)
-  - name: PageForms
-    reason: MediaWiki core namespace class compatibility issues
+  - name: Nuke
+    reason: Deprecated/warnings raised as errors on strict PHPUnit
+  - name: DiscussionTools
+    reason: ApiParseDiscussionToolsTest suite failures under MediaWiki 1.43
+  - name: Thanks
+    reason: Integration SpecialLogTest suite failures
+  - name: Babel
+    reason: Requires CommunityConfiguration test classes not available in isolation
+  - name: CheckUser
+    reason: Integration test suite errors under MW 1.43
+  - name: CreateRedirect
+    reason: Integration test suite errors under MW 1.43
+  - name: MassMessage
+    reason: Integration list content edit test suite failure (user/group permission issues)
   - name: TemplateStyles
     reason: Integration CSS sanitization assertion failure under MediaWiki 1.43
-  - name: WikiSEO
-    reason: Integration test requires PageImages extension (cross-batch dependency)
+  - name: UploadWizard
+    reason: Registration conflict on wgUploadWizardConfig under MediaWiki 1.43
